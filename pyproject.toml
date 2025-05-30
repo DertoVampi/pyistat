@@ -1,0 +1,20 @@
+[project]
+name = "pyistat"
+version = "0.1.4"
+description = "Pyistat is a friendly module made to easily allow anyone to use Python to search and get datasets from ISTAT APIs. There are two modules: the \"search\" module is used to find datasets and gives all the information needed to build a request URL. The \"get\" module is used to get data after helping you properly setup the dimensions (the keys, as called by ISTAT). This module was created because I found the lack of documentation by ISTAT frustrating."
+authors = [
+    {name = "Cosimo Di Martino",email = "derto.dimartino@gmail.com"}
+]
+license = {text = "Mozilla Public License 2.0"}
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "requests (>=2.32.3,<3.0.0)",
+    "pandas (>=2.2.3,<3.0.0)",
+    "datetime (>=5.5,<6.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
