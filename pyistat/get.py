@@ -201,6 +201,8 @@ def find_last_edition(df):
         edition_date = int(str(year)+str(month).zfill(2)+str(day).zfill(2))
         date_list.append(edition_date)
     date_list.sort(reverse=True)
+    if date_list == []:
+        return None
     last_edition = str(date_list[0])
     if last_edition.endswith("00"):
         last_edition = last_edition[:-2]
@@ -297,4 +299,5 @@ def get_dimensions(dataflow_id, lang="en", returned="dataframe"):
         return df
     elif returned == "csv":
         df.to_csv(f"{dataflow_id}_dimensions")
+
     
