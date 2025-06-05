@@ -60,7 +60,10 @@ pil_df = get.get_data("163_156_DF_DCCN_SQCQ_3", end_period=2024, updated_after=2
 # Or simply get the full data available.
 pil_df = get.get_data("163_156_DF_DCCN_SQCQ_3")
 ```
+Finally, take care of the select_last_edition variable set to True by default: it allows you to always fetch fresh data from the Istat APIs. Make sure to use it if you want an hassle-free code. If you prefer manually assigning your editions, set select_last_edition=False in get_data.
+```
 
+```
 There is an additional variable you can pass to the get_data function, which is force_url=True. Normally, the function checks whether the number of dimensions assigned is the same as the dimensions the dataflow requires, and whether the dimension values you provide are consistent with those of the dataflow. However, for unknown reasons, sometimes the number of dimension found in the structure XML is different from what the dataflow actually requires... In this case, if you are confident the URL is correct (maybe try it in the browser first), you can pass force_url=True to skip the controls.
 
 ### To do
@@ -69,5 +72,6 @@ I made this module as I found the lack of documentation from ISTAT regarding the
 
 If it gains traction I'd be more than happy to fix it wherever there is the need of fixing.
 
-To do: a .exe that is system-and language-agnostic.
-Fix inefficiencies in the code.
+To do: Fix inefficiencies in the code.
+
+Last fixes: Changed the logic with which the search module searched for dimensions and constraints, making it consistent with what you get from get.get_dimensions. Improved efficiency of the code. Added commenting. Added select_last_edition functionality.
