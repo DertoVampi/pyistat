@@ -28,11 +28,22 @@ class TooManyDimensionsError(Exception):
     """
     The dimensions you chose are less or more than those required from the dataflow.
     """
-    def __init__(self, dimensions, dimensions_dict, message=None):
+    def __init__(self, dimensions, dimensions_length, message=None):
         if message is None:
            message = f"""Warning: the dimensions you chose are {len(dimensions)}, while the dimensions
-                 requested by the dataflow are {len(dimensions_dict.keys())}. If you believe
+                 requested by the dataflow are {dimensions_length}. If you believe
                  this is a mistake, you can force the url by adding force_url=True to the function call."""
+        self.message = message
+        super().__init__(self.message)
+        
+class TooManyDimensionsError2(Exception):
+    """
+    The dimensions you chose are less or more than those required from the dataflow.
+    """
+    def __init__(self, dimensions, dimensions_length, message=None):
+        if message is None:
+           message = f"""Warning: the dimensions you chose are {len(dimensions)}, while the dimensions
+                 requested by the dataflow are {dimensions_length}. The edition auto-fetch cannot work."""
         self.message = message
         super().__init__(self.message)
         
@@ -53,7 +64,9 @@ class KwargsError(Exception):
     """
     Error while using arguments. Check the name and value of arguments or use a list.
     """
-    def __init__(self, message="Error while using arguments. Check the name and value of arguments or use a list.."):
+    def __init__(self, key, value, message=None):
+        if message is None:
+            message = f"Error while using arguments. Check the name and value of arguments or use a list. {key}:{value} could not be found."
         self.message = message
         super().__init__(self.message)
         

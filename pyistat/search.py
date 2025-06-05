@@ -8,7 +8,7 @@ Created on Tue May 27 14:08:35 2025
 import pandas as pd
 import requests
 import xml.etree.ElementTree as ET
-from .errors import DimensionsOrKwargsError, NotAListError, TooManyDimensionsError, DifferentDimensionValueError, KwargsError, OtherResponseCodeError, WrongFormatError
+from .errors import OtherResponseCodeError, WrongFormatError
 
 def get_all_dataflows(returned="dataframe"):
     """
@@ -132,19 +132,29 @@ def search_dataflows(search_term, mode="fast", lang="en", returned="dataframe"):
         elif returned == "csv":
             deep_search_df.to_csv("requested_data.csv", index=False)
         
+def format_dimensions(codelist_list): # Format dimensions in a different function to avoid cluttering, only used in deeps_search
+    codelist_list = sorted(codelist_list, key=lambda x: x['order'])
+    dimension_dict = {}    
+    for item in codelist_list:
+        dimension_name = item['dimension_name']
+        dimension_value = item['dimension_value']
+        if dimension_name not in dimension_dict:
+            dimension_dict[dimension_name] = []
+        if dimension_value not in dimension_dict[dimension_name]:
+            dimension_dict[dimension_name].append(dimension_value)
 
+    formatted_parts = [f"{name}={','.join(values)}" for name, values in dimension_dict.items()]
+    return ";".join(formatted_parts)
 
-def deep_search(obj, lang="en", get=False):  
+def deep_search(df, lang="en"):  
     """
     This function is used by the search_dataflows function if the selected mode is "deep".
 
     Parameters
     ----------
-    obj : Can be a string or a DataFrame.
+    df : Must be a DataFrame.
     lang : String, 
         used to select the language of the search. The default is "en".
-    get : Bool, 
-        used only when called by the function in get.py. The default is False.
 
     Raises
     ------
@@ -154,7 +164,6 @@ def deep_search(obj, lang="en", get=False):
     Returns
     -------
    df : normal return when used by search_dataflows.
-   dict : return when used to count the keys by get.get_data.
 
     """
 
@@ -162,12 +171,11 @@ def deep_search(obj, lang="en", get=False):
     namespaces = {
         'message': 'http://www.sdmx.org/resources/sdmxml/schemas/v2_1/message',
         'structure': 'http://www.sdmx.org/resources/sdmxml/schemas/v2_1/structure',
-        'common': 'http://www.sdmx.org/resources/sdmxml/schemas/v2_1/common'
+        'common': 'http://www.sdmx.org/resources/sdmxml/schemas/v2_1/common',
+        'xml': 'http://www.w3.org/XML/1998/namespace'
     }
-    df = obj # Terrible, hopefully temporary workaround that must be resolved otherwise it doesn't work with the get functions.
-    if not isinstance(obj, pd.DataFrame):
-        df = pd.DataFrame({"id":[obj]})            
     codelist_list = []
+    df["dataflow_dimensions"] = ""
     for index, row in df.iterrows():
         dataflow_id = row["id"]
         data_url = f"https://esploradati.istat.it/SDMXWS/rest/availableconstraint/{dataflow_id}/?references=all&detail=full"
@@ -176,24 +184,29 @@ def deep_search(obj, lang="en", get=False):
         response_code = response.status_code
         if response_code != 200:
             raise OtherResponseCodeError(response_code)
-        
+                
         response = response.content.decode('utf-8-sig')
         tree = ET.ElementTree(ET.fromstring(response))
-        codelist_dict = {}
-        codelist_full_dict = {}
-        for key_value in tree.findall('.//common:KeyValue', namespaces):
-            key_id = key_value.get('id')
-            if not key_id == "TIME_PERIOD":
-                values = [value.text for value in key_value.findall('common:Value', namespaces)]
-                codelist_dict[key_id] = values
-                formatted_dimensions = "; ".join([f"{key}: {', '.join(values)}" for key, values in codelist_dict.items()])
-                codelist_full_dict.update(codelist_dict)
-        codelist_list.append(formatted_dimensions)
+        cube_region = tree.find('.//structure:CubeRegion', namespaces)
+        key_values = cube_region.findall('.//common:KeyValue', namespaces)
 
-    if get == False:
-        df['Dimensions'] = codelist_list
-        return df
-    return codelist_full_dict
-    
-    
-    
+        for codelist in tree.findall(".//structure:Codelist", namespaces):
+            codelist_name = codelist.find(f'.//common:Name[@xml:lang="{lang}"]', namespaces).text
+
+            for code in codelist.findall('.//structure:Code', namespaces):
+                code_id = code.get('id')
+
+                for idx, key_value in enumerate(key_values):
+                    for value in key_value.findall('common:Value', namespaces):
+                        if value.text == code_id:
+                            codelist_list.append({
+                                'dimension_name': codelist_name,
+                                'dimension_value': code_id,
+                                'order': idx + 1
+                            })
+                            break
+        dict_list = format_dimensions(codelist_list)
+        df.at[index, 'dataflow_dimensions'] = dict_list
+        
+    return df
+ 

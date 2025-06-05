@@ -1,7 +1,7 @@
 [project]
 name = "pyistat"
-version = "0.1.4"
-description = "Pyistat is a friendly module made to easily allow anyone to use Python to search and get datasets from ISTAT APIs. There are two modules: the \"search\" module is used to find datasets and gives all the information needed to build a request URL. The \"get\" module is used to get data after helping you properly setup the dimensions (the keys, as called by ISTAT). This module was created because I found the lack of documentation by ISTAT frustrating."
+version = "1.0.0"
+description = "Pyistat is a friendly module made to easily allow anyone to use Python to search and get datasets from ISTAT APIs. There are two modules: the search module is used to find datasets and gives all the information needed to build a request URL. The get module is used to get data after helping you properly setup the dimensions (the keys, as called by ISTAT). Full documentation available on GitHub: https://github.com/DertoVampi/pyistat/tree/main"
 authors = [
     {name = "Cosimo Di Martino",email = "derto.dimartino@gmail.com"}
 ]

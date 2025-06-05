@@ -4,15 +4,13 @@ Created on Tue May 27 17:01:35 2025
 
 @author: DiMartino
 """
-
 import pandas as pd
 import requests
 import xml.etree.ElementTree as ET
-from .search import deep_search
-from .errors import DimensionsOrKwargsError, NotAListError, TooManyDimensionsError, DifferentDimensionValueError, KwargsError, OtherResponseCodeError, WrongFormatError
+from .errors import DimensionsOrKwargsError, NotAListError, TooManyDimensionsError, TooManyDimensionsError2, DifferentDimensionValueError, KwargsError, OtherResponseCodeError, WrongFormatError
 from datetime import datetime
 
-def get_data(dataflow_id, dimensions=[], force_url=False, start_period="", end_period="", updated_after="", returned="dataframe", **kwargs):
+def get_data(dataflow_id, dimensions=[], force_url=False, start_period="", end_period="", updated_after="", returned="dataframe", select_last_edition=True, **kwargs):
     """
     
 
@@ -42,6 +40,8 @@ def get_data(dataflow_id, dimensions=[], force_url=False, start_period="", end_p
     csv file: Creates a csv file in the path of your code if you choose the csv.
 
     """
+    
+    dimensions_df = pd.DataFrame() # Initialize to avoid using complex syntax to check if it exists
     if returned != "dataframe" and returned != "csv":
         raise WrongFormatError()
     if dimensions and kwargs:
@@ -54,19 +54,18 @@ def get_data(dataflow_id, dimensions=[], force_url=False, start_period="", end_p
         return None
     elif not force_url and dimensions:
         # Sometimes url checker can bug out for undiscovered reasons, in this case you are free to force the program to request data
-        dimensions_dict = deep_search(dataflow_id, get=True)
-        if len(dimensions) != len(dimensions_dict.keys()):
-            raise TooManyDimensionsError(dimensions, dimensions_dict)
+        dimensions_df = get_dimensions(dataflow_id)
+        if len(dimensions) != (len(dimensions_df["dimension_id"].unique())):
+            raise TooManyDimensionsError(dimensions, (len(dimensions_df["dimension_id"].unique())))
         
-        for user_dim, dataflow_dim in zip(dimensions, dimensions_dict.values()):
+        for user_dim, dataflow_dim in zip(dimensions, (dimensions_df["dimension_id"].unique())):
             if user_dim not in dataflow_dim and user_dim != "":
                 raise DifferentDimensionValueError(user_dim, dataflow_dim)
                 
     elif not force_url and kwargs:
         dimensions_df = get_dimensions(dataflow_id)
-        dimensions_dict = deep_search(dataflow_id, get=True)
         # Check how many dimensions there are
-        for _ in range(len(dimensions_dict.keys())):
+        for _ in range(len(dimensions_df["dimension_id"].unique())):
             dimensions.append("")
         for key, value in kwargs.items():
             check = False
@@ -78,7 +77,38 @@ def get_data(dataflow_id, dimensions=[], force_url=False, start_period="", end_p
                             check = True
                 if check:
                     break
-                raise KwargsError()
+                raise KwargsError(key, value)
+    
+    # Important part: this feature allows users to always select the latest edition ISTAT has for the dataflow.
+    # It uses the function find_last_edition to iter and find the last edition and automatically fills it for the user.
+    # It won't work if an edition is manually added via kwargs or dimensions. It also checks whether the correct number of dimensions was added in order to gracefully fail.
+    # There are multiple checks: 
+    # Check if dimensions_df is already fetched from the controlo before to avoid another call;
+    # Check if kwargs are used and t_bis is not defined;
+    # Check if the dimensions are less than the order position for the dimensions.
+    if select_last_edition==True:
+        if dimensions_df.empty:
+            dimensions_df = get_dimensions(dataflow_id)
+        last_edition = find_last_edition(dimensions_df)
+        if last_edition is not None:
+            filtered_df = dimensions_df.loc[dimensions_df['dimension_id'] == 'T_BIS', 'order']
+            order_values = filtered_df.tolist()
+            order = int(order_values[0])-1
+            if kwargs and "t_bis" in kwargs:
+                print("Warning: you passed an edition value 't_bis=x' with select_last_edition set on True. Remove the t_bis variable if you want the module to automatically fetch the last edition.")
+                pass
+            if order >= len(dimensions):
+                raise TooManyDimensionsError2(dimensions, (len(dimensions_df["dimension_id"].unique())))
+            if dimensions[order] != "":
+                print("Warning: you passed an edition value for the edition in the dimensions provided, with select_last_edition set on True. Remove the t_bis variable if you want the module to automatically fetch the last edition.")
+                pass
+            else:
+                try:
+                    dimensions[order] = last_edition
+                except TooManyDimensionsError as e:
+                    print(e)
+        else:
+            print("Edition dimension not found. Skipping auto-fetching.")
     # Checking if time periods are formatted right and building the strings
     dim_string = '.'.join(dimensions)
     if start_period=="" and end_period=="":
@@ -95,10 +125,11 @@ def get_data(dataflow_id, dimensions=[], force_url=False, start_period="", end_p
     if updated_after != "" and isinstance(updated_after,int):
         period_string.append(f"&updatedAfter={updated_after}")
     elif updated_after == "":
-        easter_egg = "You've been blessed! Hello!"
+        easter_egg = "You've been blessed! Hello, pleased to meet you!"
     else:
         print("Warning: updated_after is not an int. Skipped.")
-       
+    
+    # Build the string and make the request: if the response is 200, then keep going.
     api_url = rf"https://esploradati.istat.it/SDMXWS/rest/data/{dataflow_id}/{dim_string}/{period_string}"
     response = requests.get(api_url)
     response_code = response.status_code
@@ -146,9 +177,57 @@ def get_data(dataflow_id, dimensions=[], force_url=False, start_period="", end_p
                 return df
             elif returned == "csv":
                 df.to_csv(f"{dataflow_id}_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv", index=False)
+
+
+def find_last_edition(df):
+    try:
+        edition_df = df[df["dimension_id"] == "T_BIS"]
+    except:
+        return None
+    edition_list = edition_df["dimension_value"].tolist()
+    date_list = []
+    for edition in edition_list:
+        year = int(edition[0:4])
+        month_start = edition.find("M")+1 
+        month_end = month_start+2 if edition[month_start:month_start+2].isdigit() else month_start + 1
+        month = int(edition[month_start:month_end])
+        if "G" in edition:
+            day_start = edition.find("G")+1
+            day_end = day_start+2 if edition[day_start:day_start+2].isdigit() else day_start + 1
+            day = int(edition[day_start:day_end])
+        else:
+            day = ""
+        
+        edition_date = int(str(year)+str(month).zfill(2)+str(day).zfill(2))
+        date_list.append(edition_date)
+    date_list.sort(reverse=True)
+    last_edition = str(date_list[0])
+    if last_edition.endswith("00"):
+        last_edition = last_edition[:-2]
+        year = last_edition[0:4]
+        yearless_last_edition = last_edition[4:]
+        if yearless_last_edition[0] != "0":  
+            month = yearless_last_edition[0:2]
+        else:
+            month = yearless_last_edition[1:2]
+        chosen_edition = f"{year}M{month}"
+    else:
+        year = last_edition[0:4]
+        yearless_last_edition = last_edition[4:]
+        if yearless_last_edition[0] != "0":  
+            month = yearless_last_edition[0:2]
+        else:
+            month = yearless_last_edition[1:2]
+        if yearless_last_edition[-2] != "0":
+            day = yearless_last_edition[-2:]
+        else:
+            day = yearless_last_edition[-1]
+        chosen_edition = f"{year}M{month}G{day}"
+    return chosen_edition
+    
             
 
-def get_dimensions(dataflow_id, lang="en", get=False, returned="dataframe"):
+def get_dimensions(dataflow_id, lang="en", returned="dataframe"):
     """
     
 
@@ -193,7 +272,7 @@ def get_dimensions(dataflow_id, lang="en", get=False, returned="dataframe"):
     codelist_list = []
 
     for codelist in tree.findall(".//structure:Codelist", namespaces):
-        codelist_id = codelist.get('id')[3:]  # Rimuovi il prefisso "CL_"
+        codelist_id = codelist.get('id')[3:]  # The prefix "CL_" must be removed as it is internal
         codelist_name = codelist.find(f'.//common:Name[@xml:lang="{lang}"]', namespaces).text
 
         for code in codelist.findall('.//structure:Code', namespaces):
@@ -212,12 +291,10 @@ def get_dimensions(dataflow_id, lang="en", get=False, returned="dataframe"):
                         })
                         break
 
-    if not get:
-        df = pd.DataFrame(codelist_list)
-        if returned == "dataframe":
-            return df
-        elif returned == "csv":
-            df.to_csv(f"{dataflow_id}_dimensions")
-    else:
-        return codelist_list
+
+    df = pd.DataFrame(codelist_list)
+    if returned == "dataframe":
+        return df
+    elif returned == "csv":
+        df.to_csv(f"{dataflow_id}_dimensions")
     
