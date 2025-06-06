@@ -40,7 +40,7 @@ def get_data(dataflow_id, dimensions=[], force_url=False, start_period="", end_p
     csv file: Creates a csv file in the path of your code if you choose the csv.
 
     """
-    
+    dimensions = [string.upper() for string in dimensions]
     dimensions_df = pd.DataFrame() # Initialize to avoid using complex syntax to check if it exists
     if returned != "dataframe" and returned != "csv":
         raise WrongFormatError()
@@ -58,9 +58,17 @@ def get_data(dataflow_id, dimensions=[], force_url=False, start_period="", end_p
         if len(dimensions) != (len(dimensions_df["dimension_id"].unique())):
             raise TooManyDimensionsError(dimensions, (len(dimensions_df["dimension_id"].unique())))
         
-        for user_dim, dataflow_dim in zip(dimensions, (dimensions_df["dimension_id"].unique())):
-            if user_dim not in dataflow_dim and user_dim != "":
-                raise DifferentDimensionValueError(user_dim, dataflow_dim)
+        counter = 0
+        for _, user_dim in enumerate(dimensions):
+            user_dim = user_dim.upper()
+            if user_dim != "":
+                counter_dim_df = dimensions_df[dimensions_df["order"] == counter+1]
+                if user_dim in counter_dim_df["dimension_value"].tolist():
+                    counter += 1
+                else:
+                    raise DifferentDimensionValueError(user_dim, counter_dim_df["dimension_id"].unique(), counter_dim_df["dimension_value"].tolist())
+            else:
+                counter += 1 
                 
     elif not force_url and kwargs:
         dimensions_df = get_dimensions(dataflow_id)
@@ -73,7 +81,7 @@ def get_data(dataflow_id, dimensions=[], force_url=False, start_period="", end_p
                 for index, row in dimensions_df.iterrows():
                     if key.casefold() == row["dimension_id"].casefold():
                         if value.casefold() == row["dimension_value"].casefold():
-                            dimensions[row["order"]-1] = value
+                            dimensions[row["order"]-1] = value # Order-1 is needed as order row starts from 1, order for lists starts from 0
                             check = True
                 if check:
                     break
@@ -300,4 +308,3 @@ def get_dimensions(dataflow_id, lang="en", returned="dataframe"):
     elif returned == "csv":
         df.to_csv(f"{dataflow_id}_dimensions")
 
-    

@@ -51,12 +51,11 @@ class DifferentDimensionValueError(Exception):
     """
     Different dimensions found.
     """
-    def __init__(self, user_dim, dataflow_dim, message=None):
+    def __init__(self, user_dim, dataflow_dim, dataflow_values, message=None):
         if message is None:
-            message = f"""Warning: the dimension value {user_dim} cannot be found in the possible values
-                  for the dimension {dataflow_dim}. Check if the order of the dimensions is correct.
-                  If you believe this is an error, you can force the url by adding
-                  force_url=True to the function call."""
+            message = f"""Warning: the dimension value {user_dim} cannot be found in the possible values for the dimension {dataflow_dim}. Check if the order of the dimensions you added is correct. 
+Available values for the dimension: {dataflow_values}.
+If you believe this is an error, you can force the url by adding force_url=True to the function call."""
         self.message = message
         super().__init__(self.message)
         
