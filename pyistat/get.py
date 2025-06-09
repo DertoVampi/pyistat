@@ -10,7 +10,7 @@ import xml.etree.ElementTree as ET
 from .errors import DimensionsOrKwargsError, NotAListError, TooManyDimensionsError, TooManyDimensionsError2, DifferentDimensionValueError, KwargsError, OtherResponseCodeError, WrongFormatError
 from datetime import datetime
 
-def get_data(dataflow_id, dimensions=[], force_url=False, start_period="", end_period="", updated_after="", returned="dataframe", select_last_edition=True, **kwargs):
+def get_data(dataflow_id, dimensions=[], force_url=False, start_period="", end_period="", updated_after="", returned="dataframe", select_last_edition=True, debug_url=False, **kwargs):
     """
     
 
@@ -22,6 +22,8 @@ def get_data(dataflow_id, dimensions=[], force_url=False, start_period="", end_p
         an ordered list of strings of the dimensions. Make sure to leave it null if you use kwargs. The default is [].
     force_url : Bool, 
         used to force the URL request even if the they were not checked against the allowed dimensions. The default is False.
+     debug_url : Bool, 
+         used to obtain the generated URL for manual debugging. The default is False.
     start_period : Int, 
         used to filter for start period. The default is "".
     end_period : Int, 
@@ -45,7 +47,6 @@ def get_data(dataflow_id, dimensions=[], force_url=False, start_period="", end_p
     if returned != "dataframe" and returned != "csv":
         raise WrongFormatError()
     if dimensions and kwargs:
-        print("Warning: either pass a list that is ordered following the order you can find with get_dimensions, or pass args. You cannot pass both.")
         raise DimensionsOrKwargsError
     elif not dimensions and not kwargs:
         dimensions = ["all"]
@@ -70,7 +71,7 @@ def get_data(dataflow_id, dimensions=[], force_url=False, start_period="", end_p
             else:
                 counter += 1 
                 
-    elif not force_url and kwargs:
+    elif kwargs: # The check must be done even if force_url==True as the program needs to fetch the positioning for dimension values.
         dimensions_df = get_dimensions(dataflow_id)
         # Check how many dimensions there are
         for _ in range(len(dimensions_df["dimension_id"].unique())):
@@ -121,24 +122,25 @@ def get_data(dataflow_id, dimensions=[], force_url=False, start_period="", end_p
     dim_string = '.'.join(dimensions)
     if start_period=="" and end_period=="":
         period_string = "all?"
-    elif end_period=="" and isinstance(start_period, int):
+    elif end_period=="":
         period_string = f"all?startPeriod={start_period}"
-    elif start_period=="" and isinstance(end_period, int):
+    elif start_period=="":
         period_string = f"all?endPeriod={end_period}"
-    elif start_period=="" and isinstance(end_period, int) and end_period=="" and isinstance(start_period, int):
+    elif start_period=="" and end_period=="" and isinstance(start_period, int):
         period_string = f"all?startPeriod={start_period}&endPeriod={end_period}"
-    else:
-        print("Warning: variables start_period and end_period are not an int or ''. Removed the period_string.")
         period_string=""
-    if updated_after != "" and isinstance(updated_after,int):
-        period_string.append(f"&updatedAfter={updated_after}")
+    if updated_after != "":
+        if period_string:
+            period_string.append(f"&updatedAfter={updated_after}")
+        else:
+            period_string = f"all=updatedAfter={updated_after}"
     elif updated_after == "":
         easter_egg = "You've been blessed! Hello, pleased to meet you!"
-    else:
-        print("Warning: updated_after is not an int. Skipped.")
     
     # Build the string and make the request: if the response is 200, then keep going.
     api_url = rf"https://esploradati.istat.it/SDMXWS/rest/data/{dataflow_id}/{dim_string}/{period_string}"
+    if debug_url==True:
+        print(api_url)
     response = requests.get(api_url)
     response_code = response.status_code
     if response_code != 200:
@@ -307,4 +309,3 @@ def get_dimensions(dataflow_id, lang="en", returned="dataframe"):
         return df
     elif returned == "csv":
         df.to_csv(f"{dataflow_id}_dimensions")
-

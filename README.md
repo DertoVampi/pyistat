@@ -82,4 +82,9 @@ If it gains traction I'd be more than happy to fix it wherever there is the need
 
 To do: Fix inefficiencies in the code. Comment the code more. Add a graphic way to setup queries.
 
-Last fixes: Changed the logic with which the search module searched for dimensions and constraints, making it consistent with what you get from get.get_dimensions. Improved efficiency of the code. Added commenting. Added select_last_edition functionality. Minor bugfixes.
+Last fixes: 
+1.0.3: 
+- Fixed a bug that occurred when kwargs were used together with force_url. Now, force_url has no effect when kwargs are used, as the positioning of values must be extracted from the dimension_df. 
+- Added a debug_url set to False to get.get_data. Setting it to True prints the generated url for manual debugging. 
+
+1.0.2: Changed the logic with which the search module searched for dimensions and constraints, making it consistent with what you get from get.get_dimensions. Improved efficiency of the code. Added commenting. Added select_last_edition functionality. Minor bugfixes.
