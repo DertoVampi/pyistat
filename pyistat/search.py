@@ -10,6 +10,8 @@ import requests
 import xml.etree.ElementTree as ET
 from .errors import OtherResponseCodeError, WrongFormatError
 
+all_dataflows = pd.DataFrame() # Cardinal sin: but I used a global variable. It serves ONLY to avoid repeating requests when searching is employed.
+
 def get_all_dataflows(returned="dataframe"):
     """
     This function is used in the search_dataflows function to search for dataflows,
@@ -22,49 +24,55 @@ def get_all_dataflows(returned="dataframe"):
 
     """
     # This is the ISTAT url for all dataflows
-    dataflow_url = "https://esploradati.istat.it/SDMXWS/rest/dataflow/ALL/ALL/LATEST"   
-    response = requests.get(dataflow_url)
-    response_code = response.status_code
-    if response_code == 200:
-        response = response.content.decode('utf-8-sig')
-        tree = ET.ElementTree(ET.fromstring(response))
-        # Namespaces for ISTAT' SDMX dataflows
-        namespaces = {
-            'message': 'http://www.sdmx.org/resources/sdmxml/schemas/v2_1/message',
-            'structure': 'http://www.sdmx.org/resources/sdmxml/schemas/v2_1/structure',
-            'common': 'http://www.sdmx.org/resources/sdmxml/schemas/v2_1/common'
-        }
-        data = []
-        for dataflow in tree.findall('.//structure:Dataflow', namespaces):
-
-            name_it = None
-            name_en = None
-            for name in dataflow.findall('.//common:Name', namespaces):
-                lang = name.get('{http://www.w3.org/XML/1998/namespace}lang')
-                if lang == 'it':
-                    name_it = name.text
-                elif lang == 'en':
-                    name_en = name.text
-            row = {
-                'id': dataflow.get('id'),
-                'agencyID': dataflow.get('agencyID'),
-                'version': dataflow.get('version'),
-                'isFinal': dataflow.get('isFinal'),
-                'name_it': name_it,
-                'name_en': name_en
+    global all_dataflows
+    if all_dataflows.empty:
+        dataflow_url = "https://esploradati.istat.it/SDMXWS/rest/dataflow/ALL/ALL/LATEST"   
+        response = requests.get(dataflow_url)
+        response_code = response.status_code
+        if response_code == 200:
+            response = response.content.decode('utf-8-sig')
+            tree = ET.ElementTree(ET.fromstring(response))
+            # Namespaces for ISTAT' SDMX dataflows
+            namespaces = {
+                'message': 'http://www.sdmx.org/resources/sdmxml/schemas/v2_1/message',
+                'structure': 'http://www.sdmx.org/resources/sdmxml/schemas/v2_1/structure',
+                'common': 'http://www.sdmx.org/resources/sdmxml/schemas/v2_1/common'
             }
-            data.append(row)
-        
-        df = pd.DataFrame(data)
-        
-        if returned.casefold() == "dataframe" :  
-            return df
-        elif returned.casefold() == "csv":
-            df.to_csv("all_dataflows_ISTAT.csv")
+            data = []
+            for dataflow in tree.findall('.//structure:Dataflow', namespaces):
+    
+                name_it = None
+                name_en = None
+                for name in dataflow.findall('.//common:Name', namespaces):
+                    lang = name.get('{http://www.w3.org/XML/1998/namespace}lang')
+                    if lang == 'it':
+                        name_it = name.text
+                    elif lang == 'en':
+                        name_en = name.text
+                row = {
+                    'id': dataflow.get('id'),
+                    'agencyID': dataflow.get('agencyID'),
+                    'version': dataflow.get('version'),
+                    'isFinal': dataflow.get('isFinal'),
+                    'name_it': name_it,
+                    'name_en': name_en
+                }
+                data.append(row)
         else:
-            raise WrongFormatError()
+            raise OtherResponseCodeError(response_code)
+            return None
     else:
-        raise OtherResponseCodeError(response_code)
+        df = all_dataflows
+        
+    df = pd.DataFrame(data)
+    all_dataflows = df # Updates the global variable.
+    
+    if returned.casefold() == "dataframe" :  
+        return df
+    elif returned.casefold() == "csv":
+        df.to_csv("all_dataflows_ISTAT.csv")
+    else:
+        raise WrongFormatError()
         
 
 def search_dataflows(search_term, mode="fast", lang="en", returned="dataframe"):
@@ -93,14 +101,19 @@ def search_dataflows(search_term, mode="fast", lang="en", returned="dataframe"):
     csv file: Creates a csv file in the path of your code if you choose the csv.
 
     """
+    global all_dataflows
     if returned != "dataframe" and returned != "csv":
         raise WrongFormatError()
     # The function must accept either single words or lists
     if isinstance(search_term, str):
         search_term = [search_term]
-    df = get_all_dataflows()
+    if all_dataflows.empty():
+        df = get_all_dataflows()
+    else:
+        df = all_dataflows
     if df.empty:
         print("Error: cannot retrieve dataflows from the ISTAT API. Open a request on Github.")
+        return None
     
     # Initialize dataframe
     search_df = df.copy()
@@ -209,4 +222,3 @@ def deep_search(df, lang="en"):
         df.at[index, 'dataflow_dimensions'] = dict_list
         
     return df
- 
