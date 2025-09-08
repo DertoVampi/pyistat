@@ -10,6 +10,11 @@ This module also offers users accurate checks to see if the requests is valid or
 
 I hope this is what you are looking for! Enjoy querying ISTAT APIs to your heart's content. Happy data analysis!
 
+## Important Update
+
+ISTAT has put on unreasonable restrictions on requests, leading to failure to perform requests. I am currently asking ISTAT how to avoid these restrictions, meanwhile I tried making the code as lightweight as possible for their endpoint. 
+
+
 ## How does it work?
 
 PyIstat has two modules: search and get. To use it in Python simply install it via pip. They are built to work with pandas, so make sure to import pandas to make full use of the modules. Technically you can also download every query as a .csv but it gets clunky over time.
@@ -80,9 +85,12 @@ I made this module as I found the lack of documentation from ISTAT regarding the
 
 If it gains traction I'd be more than happy to fix it wherever there is the need.
 
-To do: Fix inefficiencies in the code. Comment the code more. Add a graphic way to setup queries.
+To do: Fix inefficiencies in the code. Comment the code more. Add a graphic way to setup queries. Test to see if ISTAT restrictions are avoided.
 
 Last fixes: 
+1.0.4: 
+- After ISTAT put unreasonable restrictions on data requests, I have been forced to use global variables to avoid as many requests as possible. Need testing to see if it is enough.
+
 1.0.3: 
 - Fixed a bug that occurred when kwargs were used together with force_url. Now, force_url has no effect when kwargs are used, as the positioning of values must be extracted from the dimension_df. 
 - Added a debug_url set to False to get.get_data. Setting it to True prints the generated url for manual debugging. 
