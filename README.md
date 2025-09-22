@@ -12,7 +12,9 @@ I hope this is what you are looking for! Enjoy querying ISTAT APIs to your heart
 
 ## Important Update
 
-ISTAT has put on unreasonable restrictions on requests, leading to failure to perform requests. I am currently asking ISTAT how to avoid these restrictions, meanwhile I tried making the code as lightweight as possible for their endpoint. 
+UPDATE: the code now works and is lighter on ISTAT's endpoint. Still, it is recommended to avoid re-running the same requests too many times and to use cached data where possible.
+
+_ISTAT has put on unreasonable restrictions on requests, leading to failure to perform requests. I am currently asking ISTAT how to avoid these restrictions, meanwhile I tried making the code as lightweight as possible for their endpoint. _
 
 
 ## How does it work?
