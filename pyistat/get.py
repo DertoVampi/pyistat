@@ -320,22 +320,6 @@ def get_dimensions(dataflow_id, lang="en", returned="dataframe", debug_url=False
                             'order': idx + 1
                         })
                         break
-
-    key_values = cube_region.findall('.//com:KeyValue', namespaces)
-
-    for idx, key_value in enumerate(key_values):
-        dimension_name = key_value.get('id')
-        if dimension_name is None:
-            continue  # skip if no id attribute
-        # Find all Value elements under this KeyValue
-        values = key_value.findall('com:Value', namespaces)
-        for value in values:
-            if value.text is not None:
-                codelist_list.append({
-                    'dimension_name': dimension_name,
-                    'dimension_value': value.text.strip(),
-                    'order': idx + 1
-                })
         
         
     df = pd.DataFrame(codelist_list)
