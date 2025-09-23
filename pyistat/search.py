@@ -107,7 +107,7 @@ def search_dataflows(search_term, mode="fast", lang="en", returned="dataframe"):
     # The function must accept either single words or lists
     if isinstance(search_term, str):
         search_term = [search_term]
-    if all_dataflows.empty():
+    if all_dataflows.empty:
         df = get_all_dataflows()
     else:
         df = all_dataflows
