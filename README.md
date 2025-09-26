@@ -2,7 +2,7 @@
 
 Easy ISTAT APIs to get data from ISTAT datasets, written in Python.
 
-Documentation for ISTAT APIs is almost non-existent, what exists is often outdated, and this is a shame. After much grief I created a simple module that allows analysts to search and extract data from their APIs without relying on the outdated information that can be found on the Internet.
+Documentation for ISTAT APIs is non-existent, what little exists is often outdated, and this is a shame. After much grief I created a simple module that allows analysts to search and extract data from their APIs without relying on the outdated information that can be found on the Internet. The module also handles the requests limit.
 
 In practice, pyistat abstracts the API calls to ISTAT and requires no previous knowledge of XMLs and requests. It is perfect for automating data extraction from fresh datasets and is optimized to require 0 maintenance after setup.
 
@@ -12,9 +12,7 @@ I hope this is what you are looking for! Enjoy querying ISTAT APIs to your heart
 
 ## Important Update
 
-UPDATE: the code now works and is lighter on ISTAT's endpoint. Still, it is recommended to avoid re-running the same requests too many times and to use cached data where possible.
-
-_ISTAT has put on unreasonable restrictions on requests, leading to failure to perform requests. I am currently asking ISTAT how to avoid these restrictions, meanwhile I tried making the code as lightweight as possible for their endpoint. _
+UPDATE: The new limitations imposed by ISTAT are the following: 5 requests/minute or the IP will be banned for 7 days. I updated the code to track the requests and pause them until it is safe to resume. It is advised not to re-run the code from multiple kernels and to stick with one computer at a time running it.
 
 
 ## How does it work?
@@ -87,9 +85,13 @@ I made this module as I found the lack of documentation from ISTAT regarding the
 
 If it gains traction I'd be more than happy to fix it wherever there is the need.
 
-To do: Fix inefficiencies in the code. Comment the code more. Add a graphic way to setup queries. Test to see if ISTAT restrictions are avoided.
+To do: Fix inefficiencies in the code. Comment the code more. Add a graphic way to setup queries. Implement Classes instead of Functions.
 
 Last fixes: 
+
+1.1.0:
+- After the new ISTAT restrictions I released new code to count and track requests and avoid them with a decorator function that prevents requesting more than 5 calls/minute. It pauses the code and it then is resumed after 60 seconds.
+
 1.0.4: 
 - After ISTAT put unreasonable restrictions on data requests, I have been forced to use global variables to avoid as many requests as possible. Need testing to see if it is enough.
 

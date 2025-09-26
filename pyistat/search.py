@@ -8,8 +8,8 @@ Created on Tue May 27 14:08:35 2025
 import pandas as pd
 import requests
 import xml.etree.ElementTree as ET
-from errors import OtherResponseCodeError, WrongFormatError
-from rate_limiter import rate_limit_decorator
+from .errors import OtherResponseCodeError, WrongFormatError
+from .rate_limiter import rate_limit_decorator
 
 all_dataflows = pd.DataFrame() # Cardinal sin: but I used a global variable. It serves ONLY to avoid repeating requests when searching is employed.
 

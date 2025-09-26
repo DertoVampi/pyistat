@@ -32,7 +32,7 @@ def rate_limit_decorator(func):
 
             # Track the count
             call_count += increment_by
-            print(f"Chiamata {call_count}/5. Eseguo: {func.__name__} (incremento: {increment_by})")
+            # print(f"Chiamata {call_count}/5. Eseguo: {func.__name__} (incremento: {increment_by})")
 
         # This is the wrapped function.
         return func(*args, **kwargs)

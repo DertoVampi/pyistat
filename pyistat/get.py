@@ -7,8 +7,8 @@ Created on Tue May 27 17:01:35 2025
 import pandas as pd
 import requests
 import xml.etree.ElementTree as ET
-from errors import DimensionsOrKwargsError, NotAListError, TooManyDimensionsError, TooManyDimensionsError2, DifferentDimensionValueError, KwargsError, OtherResponseCodeError, WrongFormatError
-from rate_limiter import rate_limit_decorator
+from .errors import DimensionsOrKwargsError, NotAListError, TooManyDimensionsError, TooManyDimensionsError2, DifferentDimensionValueError, KwargsError, OtherResponseCodeError, WrongFormatError
+from .rate_limiter import rate_limit_decorator
 from datetime import datetime
 
 @rate_limit_decorator
