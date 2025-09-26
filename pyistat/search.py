@@ -1,19 +1,12 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue May 27 14:08:35 2025
-
-@author: DiMartino
-"""
-
 import pandas as pd
 import requests
 import xml.etree.ElementTree as ET
 from .errors import OtherResponseCodeError, WrongFormatError
-from .rate_limiter import rate_limit_decorator
+from .rate_limiter import rate_limiter
 
 all_dataflows = pd.DataFrame() # Cardinal sin: but I used a global variable. It serves ONLY to avoid repeating requests when searching is employed.
 
-@rate_limit_decorator
+@rate_limiter
 def get_all_dataflows(returned="dataframe", timeout=30):
     """
     This function is used in the search_dataflows function to search for dataflows,
@@ -160,7 +153,7 @@ def format_dimensions(codelist_list): # Format dimensions in a different functio
     formatted_parts = [f"{name}={','.join(values)}" for name, values in dimension_dict.items()]
     return ";".join(formatted_parts)
 
-@rate_limit_decorator
+@rate_limiter
 def get_dimension_dataflows(dataflow_id, timeout=30):
     """
     This function is called by deep_search and is used to retrieve the data from ISTAT endpoint while tracking the number of requests.
@@ -210,7 +203,6 @@ def deep_search(df, lang="en", timeout=30):
     df : normal return when used by search_dataflows.
 
     """
-    global call_count, last_reset_time, rate_limit_lock
       
     namespaces = {
         'message': 'http://www.sdmx.org/resources/sdmxml/schemas/v2_1/message',
@@ -248,3 +240,6 @@ def deep_search(df, lang="en", timeout=30):
         df.at[index, 'dataflow_dimensions'] = dict_list
         
     return df
+
+
+df = search_dataflows("Coltivazion", lang="it")

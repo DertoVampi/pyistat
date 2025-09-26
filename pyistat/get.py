@@ -1,17 +1,11 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue May 27 17:01:35 2025
-
-@author: DiMartino
-"""
 import pandas as pd
 import requests
 import xml.etree.ElementTree as ET
 from .errors import DimensionsOrKwargsError, NotAListError, TooManyDimensionsError, TooManyDimensionsError2, DifferentDimensionValueError, KwargsError, OtherResponseCodeError, WrongFormatError
-from .rate_limiter import rate_limit_decorator
+from .rate_limiter import rate_limiter
 from datetime import datetime
 
-@rate_limit_decorator
+@rate_limiter
 def get_data(dataflow_id, timeout=60, dimensions=[], force_url=False, start_period="", end_period="", updated_after="", returned="dataframe", select_last_edition=True, debug_url=False, **kwargs):
     """
     
@@ -252,7 +246,7 @@ def find_last_edition(df):
 
     
             
-@rate_limit_decorator
+@rate_limiter
 def get_dimensions(dataflow_id, timeout=60, lang="en", returned="dataframe", debug_url=False):
     """
     
@@ -331,4 +325,5 @@ def get_dimensions(dataflow_id, timeout=60, lang="en", returned="dataframe", deb
         return df
     elif returned == "csv":
         df.to_csv(f"{dataflow_id}_dimensions")
+
         

@@ -4,36 +4,33 @@ from functools import wraps
 
 # As ISTAT has put in place extreme restrictions (5 requests per minute otherwise the IP gets blacklisted for 7 days...),
 # this decorator prevents that by tracking the number of requests and pausing them if needed. 
-   
-call_count = 0
-last_reset_time = time.time()
-rate_limit_lock = threading.Lock()
-# These variables set the count and handle multithreading (probably not useful)
 
-def rate_limit_decorator(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        global call_count, last_reset_time
-        with rate_limit_lock:
-            # Reset counter
-            if time.time() - last_reset_time > 61:
-                call_count = 0
-                last_reset_time = time.time()
+class RateLimiter:
+    def __init__(self, max_calls, time_to_pass):
+        self.call_count = 0
+        self.last_reset_time = time.time()
+        self.lock = threading.Lock()
+        self.max_calls = max_calls
+        self.time_to_pass = time_to_pass
 
-            # Put in place in the evenience there is the need to add 2 to the counter instead of 1
-            increment_by = 1
+    def __call__(self, func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            with self.lock:
+                if time.time() - self.last_reset_time > self.time_to_pass:
+                    self.call_count = 0
+                    self.last_reset_time = time.time()
+                # Reset counter
+                if self.call_count + 1 > self.max_calls:
+                    print(f"{self.max_calls} requests limit reached. Waiting {self.time_to_pass} seconds...")
+                    time.sleep(self.time_to_pass)
+                    self.call_count = 0
+                    self.last_reset_time = time.time()
+                    print("Resuming work.")
+                # Track the count
+                self.call_count += 1
+            # This is the wrapped function.
+            return func(*args, **kwargs)
+        return wrapper
 
-            # Set limit; 61 seconds for peace of mind.
-            if call_count + increment_by > 5:
-                print("5 requests limit reached. Waiting 60 seconds before resuming...")
-                time.sleep(61)
-                call_count = 0
-                last_reset_time = time.time()
-
-            # Track the count
-            call_count += increment_by
-            # print(f"Chiamata {call_count}/5. Eseguo: {func.__name__} (incremento: {increment_by})")
-
-        # This is the wrapped function.
-        return func(*args, **kwargs)
-    return wrapper
+rate_limiter = RateLimiter(max_calls=5, time_to_pass=70)
