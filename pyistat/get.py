@@ -12,7 +12,7 @@ from .rate_limiter import rate_limit_decorator
 from datetime import datetime
 
 @rate_limit_decorator
-def get_data(dataflow_id, dimensions=[], force_url=False, start_period="", end_period="", updated_after="", returned="dataframe", select_last_edition=True, debug_url=False, **kwargs):
+def get_data(dataflow_id, timeout=60, dimensions=[], force_url=False, start_period="", end_period="", updated_after="", returned="dataframe", select_last_edition=True, debug_url=False, **kwargs):
     """
     
 
@@ -44,10 +44,10 @@ def get_data(dataflow_id, dimensions=[], force_url=False, start_period="", end_p
     csv file: Creates a csv file in the path of your code if you choose the csv.
 
     """
-    def fetch_dimensions_df():
+    def fetch_dimensions_df(timeout):
         nonlocal dimensions_df
         if dimensions_df.empty:
-            dimensions_df = get_dimensions(dataflow_id)
+            dimensions_df = get_dimensions(dataflow_id, timeout)
         return dimensions_df
 
     dimensions = [string.upper() for string in dimensions]
@@ -63,7 +63,7 @@ def get_data(dataflow_id, dimensions=[], force_url=False, start_period="", end_p
         return None
     elif not force_url and dimensions:
         # Sometimes url checker can bug out for undiscovered reasons, in this case you are free to force the program to request data
-        dimensions_df = fetch_dimensions_df()
+        dimensions_df = fetch_dimensions_df(timeout)
         if len(dimensions) != (len(dimensions_df["dimension_id"].unique())):
             raise TooManyDimensionsError(dimensions, (len(dimensions_df["dimension_id"].unique())))
         
@@ -80,7 +80,7 @@ def get_data(dataflow_id, dimensions=[], force_url=False, start_period="", end_p
                 counter += 1 
                 
     elif kwargs: # The check must be done even if force_url==True as the program needs to fetch the positioning for dimension values.
-        dimensions_df = fetch_dimensions_df()
+        dimensions_df = fetch_dimensions_df(timeout)
         # Check how many dimensions there are
         for _ in range(len(dimensions_df["dimension_id"].unique())):
             dimensions.append("")
@@ -105,7 +105,7 @@ def get_data(dataflow_id, dimensions=[], force_url=False, start_period="", end_p
     # Check if the dimensions are less than the order position for the dimensions.
     if select_last_edition==True:
         if dimensions_df.empty:
-            dimensions_df = fetch_dimensions_df()
+            dimensions_df = fetch_dimensions_df(timeout)
         last_edition = find_last_edition(dimensions_df)
         if last_edition is not None:
             filtered_df = dimensions_df.loc[dimensions_df['dimension_id'] == 'T_BIS', 'order']
@@ -149,7 +149,7 @@ def get_data(dataflow_id, dimensions=[], force_url=False, start_period="", end_p
     api_url = rf"https://esploradati.istat.it/SDMXWS/rest/data/{dataflow_id}/{dim_string}/{period_string}"
     if debug_url==True:
         print(api_url)
-    response = requests.get(api_url, timeout=30)
+    response = requests.get(api_url, timeout=timeout)
     response_code = response.status_code
     if response_code != 200:
         raise OtherResponseCodeError(response_code)
@@ -251,7 +251,7 @@ def find_last_edition(df):
     
             
 @rate_limit_decorator
-def get_dimensions(dataflow_id, lang="en", returned="dataframe", debug_url=False):
+def get_dimensions(dataflow_id, timeout=60, lang="en", returned="dataframe", debug_url=False):
     """
     
 
@@ -290,7 +290,7 @@ def get_dimensions(dataflow_id, lang="en", returned="dataframe", debug_url=False
     if debug_url == True:
         print(data_url)
 
-    response = requests.get(data_url, timeout=30)
+    response = requests.get(data_url, timeout=timeout)
     codelist_list = []
     response_code = response.status_code
     if response_code != 200:

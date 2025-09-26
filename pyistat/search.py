@@ -14,7 +14,7 @@ from .rate_limiter import rate_limit_decorator
 all_dataflows = pd.DataFrame() # Cardinal sin: but I used a global variable. It serves ONLY to avoid repeating requests when searching is employed.
 
 @rate_limit_decorator
-def get_all_dataflows(returned="dataframe"):
+def get_all_dataflows(returned="dataframe", timeout=30):
     """
     This function is used in the search_dataflows function to search for dataflows,
     but it can also be used alone to get all the possible dataflows.
@@ -29,7 +29,7 @@ def get_all_dataflows(returned="dataframe"):
     global all_dataflows
     if all_dataflows.empty:
         dataflow_url = "https://esploradati.istat.it/SDMXWS/rest/dataflow/ALL/ALL/LATEST"   
-        response = requests.get(dataflow_url)
+        response = requests.get(dataflow_url, timeout=timeout)
         response_code = response.status_code
         if response_code == 200:
             response = response.content.decode('utf-8-sig')
@@ -76,7 +76,7 @@ def get_all_dataflows(returned="dataframe"):
     else:
         raise WrongFormatError()
         
-def search_dataflows(search_term, mode="fast", lang="en", returned="dataframe"):
+def search_dataflows(search_term, mode="fast", lang="en", returned="dataframe", timeout=30):
     """
     Allows searching for dataflows starting from strings passed. Can also accept a list.
 
@@ -109,7 +109,7 @@ def search_dataflows(search_term, mode="fast", lang="en", returned="dataframe"):
     if isinstance(search_term, str):
         search_term = [search_term]
     if all_dataflows.empty:
-        df = get_all_dataflows()
+        df = get_all_dataflows(timeout=timeout)
     else:
         df = all_dataflows
     if df.empty:
@@ -140,7 +140,7 @@ def search_dataflows(search_term, mode="fast", lang="en", returned="dataframe"):
         elif returned == "csv":
             search_df.to_csv("requested_data.csv", index=False)
     if mode =="deep":
-        deep_search_df = deep_search(search_df)
+        deep_search_df = deep_search(search_df, timeout=timeout)
         if returned == "dataframe":
             return deep_search_df
         elif returned == "csv":
@@ -161,7 +161,7 @@ def format_dimensions(codelist_list): # Format dimensions in a different functio
     return ";".join(formatted_parts)
 
 @rate_limit_decorator
-def get_dimension_dataflows(dataflow_id):
+def get_dimension_dataflows(dataflow_id, timeout=30):
     """
     This function is called by deep_search and is used to retrieve the data from ISTAT endpoint while tracking the number of requests.
 
@@ -190,7 +190,7 @@ def get_dimension_dataflows(dataflow_id):
     tree = ET.ElementTree(ET.fromstring(response))
     return tree
     
-def deep_search(df, lang="en"):  
+def deep_search(df, lang="en", timeout=30):  
     """
     This function is used by the search_dataflows function if the selected mode is "deep".
 
@@ -222,7 +222,7 @@ def deep_search(df, lang="en"):
     df["dataflow_dimensions"] = ""
     for index, row in df.iterrows():
         dataflow_id = row["id"]
-        tree = get_dimension_dataflows(dataflow_id)
+        tree = get_dimension_dataflows(dataflow_id, timeout=timeout)
         if tree is None:
             print("Error: the dataflow id could not be retrieved. Aborting.")
             return None
