@@ -89,6 +89,9 @@ To do: Fix inefficiencies in the code. Comment the code more. Add a graphic way 
 
 Last fixes: 
 
+1.1.1:
+- Changed the pyproject.toml dependencies.
+
 1.1.0:
 - After the new ISTAT restrictions I released new code to count and track requests and avoid them with a decorator function that prevents requesting more than 5 calls/minute. It pauses the code and it then is resumed after 60 seconds.
 
