@@ -8,10 +8,12 @@ Created on Tue May 27 14:08:35 2025
 import pandas as pd
 import requests
 import xml.etree.ElementTree as ET
-from .errors import OtherResponseCodeError, WrongFormatError
+from errors import OtherResponseCodeError, WrongFormatError
+from rate_limiter import rate_limit_decorator
 
 all_dataflows = pd.DataFrame() # Cardinal sin: but I used a global variable. It serves ONLY to avoid repeating requests when searching is employed.
 
+@rate_limit_decorator
 def get_all_dataflows(returned="dataframe"):
     """
     This function is used in the search_dataflows function to search for dataflows,
@@ -74,7 +76,6 @@ def get_all_dataflows(returned="dataframe"):
     else:
         raise WrongFormatError()
         
-
 def search_dataflows(search_term, mode="fast", lang="en", returned="dataframe"):
     """
     Allows searching for dataflows starting from strings passed. Can also accept a list.
@@ -131,7 +132,7 @@ def search_dataflows(search_term, mode="fast", lang="en", returned="dataframe"):
         else:
             print("Language not found.")
     if search_df.empty:
-        print(f"Warning: the dataflow {term} could not be found.")
+        print(f"Warning: the dataflow {term} could not be found. Did you set the right language?")
         return None
     if mode == "fast":
         if returned == "dataframe":
@@ -159,6 +160,36 @@ def format_dimensions(codelist_list): # Format dimensions in a different functio
     formatted_parts = [f"{name}={','.join(values)}" for name, values in dimension_dict.items()]
     return ";".join(formatted_parts)
 
+@rate_limit_decorator
+def get_dimension_dataflows(dataflow_id):
+    """
+    This function is called by deep_search and is used to retrieve the data from ISTAT endpoint while tracking the number of requests.
+
+    Parameters
+    ----------
+    dataflow_id : this is the id, provided by deep_search.
+
+    Raises
+    ------
+    errors
+        OtherResponseCodeError: when the code response from the API URL is not 200.
+
+    Returns
+    -------
+    tree : the tree that will be parsed by deep_search.
+
+    """
+    data_url = f"https://esploradati.istat.it/SDMXWS/rest/availableconstraint/{dataflow_id}/?references=all&detail=full"
+    response = requests.get(data_url)
+    response_code = response.status_code
+    if response_code == 200:
+        response = response.content.decode('utf-8-sig')
+    else:
+        raise OtherResponseCodeError(response_code)
+        return None
+    tree = ET.ElementTree(ET.fromstring(response))
+    return tree
+    
 def deep_search(df, lang="en"):  
     """
     This function is used by the search_dataflows function if the selected mode is "deep".
@@ -176,10 +207,10 @@ def deep_search(df, lang="en"):
 
     Returns
     -------
-   df : normal return when used by search_dataflows.
+    df : normal return when used by search_dataflows.
 
     """
-
+    global call_count, last_reset_time, rate_limit_lock
       
     namespaces = {
         'message': 'http://www.sdmx.org/resources/sdmxml/schemas/v2_1/message',
@@ -191,15 +222,10 @@ def deep_search(df, lang="en"):
     df["dataflow_dimensions"] = ""
     for index, row in df.iterrows():
         dataflow_id = row["id"]
-        data_url = f"https://esploradati.istat.it/SDMXWS/rest/availableconstraint/{dataflow_id}/?references=all&detail=full"
-    
-        response = requests.get(data_url)
-        response_code = response.status_code
-        if response_code != 200:
-            raise OtherResponseCodeError(response_code)
-                
-        response = response.content.decode('utf-8-sig')
-        tree = ET.ElementTree(ET.fromstring(response))
+        tree = get_dimension_dataflows(dataflow_id)
+        if tree is None:
+            print("Error: the dataflow id could not be retrieved. Aborting.")
+            return None
         cube_region = tree.find('.//structure:CubeRegion', namespaces)
         key_values = cube_region.findall('.//common:KeyValue', namespaces)
 
