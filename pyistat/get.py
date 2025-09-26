@@ -20,6 +20,8 @@ def get_data(dataflow_id, timeout=60, dimensions=[], force_url=False, start_peri
     ----------
     dataflow_id : String, 
         the dataflow id of the dataset.
+    timeout : Int, 
+        the maximum time before the request is aborted.
     dimensions : List, 
         an ordered list of strings of the dimensions. Make sure to leave it null if you use kwargs. The default is [].
     force_url : Bool, 

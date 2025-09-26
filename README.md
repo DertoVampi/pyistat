@@ -72,12 +72,14 @@ pil_df = get.get_data("163_156_DF_DCCN_SQCQ_3", end_period=2023, updated_after=2
 # Or simply get the full data available.
 pil_df = get.get_data("163_156_DF_DCCN_SQCQ_3")
 ```
-Finally, take care of the select_last_edition variable set to True by default: it allows you to always fetch fresh data from the Istat APIs. Make sure to use it if you want an hassle-free code. If you prefer manually assigning your editions, set select_last_edition=False in get_data.
+Finally, take care of the select_last_edition variable set to True by default: it allows you to always fetch fresh data from the Istat APIs. Make sure to use it if you want an hassle-free code. If you prefer to manually assign your editions, set select_last_edition=False in get_data.
 ```
 pil_df = get.get_data("163_156_DF_DCCN_SQCQ_3", t_bis="2025M3", select_last_edition=False)
 
 ```
 There is an additional variable you can pass to the get_data function, which is force_url=True. Normally, the function checks whether the number of dimensions assigned is the same as the dimensions the dataflow requires, and whether the dimension values you provide are consistent with those of the dataflow. However, for unknown reasons, sometimes the number of dimension found in the structure XML is different from what the dataflow actually requires... In this case, if you are confident the URL is correct (maybe try it in the browser first), you can pass force_url=True to skip the controls.
+
+Another variable is timeout: apply it to a function that requests a large dataset to ensure its dispatch. Standard value is 30 seconds.
 
 ### To do
 
@@ -88,6 +90,9 @@ If it gains traction I'd be more than happy to fix it wherever there is the need
 To do: Fix inefficiencies in the code. Comment the code more. Add a graphic way to setup queries. Implement Classes instead of Functions.
 
 Last fixes: 
+
+1.1.2:
+- Added the timeout variable, useful when requesting large datasets.
 
 1.1.1:
 - Changed the pyproject.toml dependencies.
