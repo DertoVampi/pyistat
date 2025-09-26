@@ -7,9 +7,11 @@ Created on Tue May 27 17:01:35 2025
 import pandas as pd
 import requests
 import xml.etree.ElementTree as ET
-from .errors import DimensionsOrKwargsError, NotAListError, TooManyDimensionsError, TooManyDimensionsError2, DifferentDimensionValueError, KwargsError, OtherResponseCodeError, WrongFormatError
+from errors import DimensionsOrKwargsError, NotAListError, TooManyDimensionsError, TooManyDimensionsError2, DifferentDimensionValueError, KwargsError, OtherResponseCodeError, WrongFormatError
+from rate_limiter import rate_limit_decorator
 from datetime import datetime
 
+@rate_limit_decorator
 def get_data(dataflow_id, dimensions=[], force_url=False, start_period="", end_period="", updated_after="", returned="dataframe", select_last_edition=True, debug_url=False, **kwargs):
     """
     
@@ -248,7 +250,7 @@ def find_last_edition(df):
 
     
             
-
+@rate_limit_decorator
 def get_dimensions(dataflow_id, lang="en", returned="dataframe", debug_url=False):
     """
     
@@ -327,3 +329,4 @@ def get_dimensions(dataflow_id, lang="en", returned="dataframe", debug_url=False
         return df
     elif returned == "csv":
         df.to_csv(f"{dataflow_id}_dimensions")
+        
