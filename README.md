@@ -2,6 +2,8 @@
 
 Easy ISTAT APIs to get data from ISTAT datasets, written in Python.
 
+Find it on Codeberg: https://codeberg.org/Derto/pyistat
+
 Documentation for ISTAT APIs is non-existent, what little exists is often outdated, and this is a shame. After much grief I created a simple module that allows analysts to search and extract data from their APIs without relying on the outdated information that can be found on the Internet. The module also handles the requests limit.
 
 In practice, pyistat abstracts the API calls to ISTAT and requires no previous knowledge of XMLs and requests. It is perfect for automating data extraction from fresh datasets and is optimized to require 0 maintenance after setup.
