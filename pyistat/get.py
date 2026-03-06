@@ -1,12 +1,12 @@
-import pandas as pd
 import requests
 import xml.etree.ElementTree as ET
 from .errors import DimensionsOrKwargsError, NotAListError, TooManyDimensionsError, TooManyDimensionsError2, DifferentDimensionValueError, KwargsError, OtherResponseCodeError, WrongFormatError
 from .rate_limiter import rate_limiter
+from .search import write_to_csv
 from datetime import datetime
 
 @rate_limiter
-def get_data(dataflow_id, timeout=60, dimensions=[], force_url=False, start_period="", end_period="", updated_after="", returned="dataframe", select_last_edition=True, debug_url=False, **kwargs):
+def get_data(dataflow_id, timeout=60, dimensions=[], force_url=False, start_period="", end_period="", updated_after="", returned="", csv_name="", select_last_edition=True, debug_url=False, **kwargs):
     """
     
 
@@ -40,15 +40,15 @@ def get_data(dataflow_id, timeout=60, dimensions=[], force_url=False, start_peri
     csv file: Creates a csv file in the path of your code if you choose the csv.
 
     """
-    def fetch_dimensions_df(timeout):
-        nonlocal dimensions_df
-        if dimensions_df.empty:
-            dimensions_df = get_dimensions(dataflow_id, timeout)
-        return dimensions_df
+    def fetch_dimensions(timeout):
+        nonlocal dimensions_list
+        if not dimensions_list:
+            dimensions_list = get_dimensions(dataflow_id, timeout)
+        return dimensions_list
 
     dimensions = [string.upper() for string in dimensions]
-    dimensions_df = pd.DataFrame() # Initialize to avoid using complex syntax to check if it exists
-    if returned != "dataframe" and returned != "csv":
+    dimensions_list = [] # Initialize to avoid using complex syntax to check if it exists
+    if returned != "" and returned != "csv":
         raise WrongFormatError()
     if dimensions and kwargs:
         raise DimensionsOrKwargsError
@@ -59,31 +59,34 @@ def get_data(dataflow_id, timeout=60, dimensions=[], force_url=False, start_peri
         return None
     elif not force_url and dimensions:
         # Sometimes url checker can bug out for undiscovered reasons, in this case you are free to force the program to request data
-        dimensions_df = fetch_dimensions_df(timeout)
-        if len(dimensions) != (len(dimensions_df["dimension_id"].unique())):
-            raise TooManyDimensionsError(dimensions, (len(dimensions_df["dimension_id"].unique())))
+        dimensions_list = fetch_dimensions(timeout)
+        if len(dimensions) != max(item["order"] for item in dimensions_list):
+            raise TooManyDimensionsError(dimensions, max(item["order"] for item in dimensions_list))
         
-        counter = 0
+        counter = 1
         for _, user_dim in enumerate(dimensions):
             user_dim = user_dim.upper()
             if user_dim != "":
-                counter_dim_df = dimensions_df[dimensions_df["order"] == counter+1]
-                if user_dim in counter_dim_df["dimension_value"].tolist():
+                counter_dim_list = [dim for dim in dimensions_list if dim["order"] == counter]
+                dimension_values = [dim["dimension_value"] for dim in counter_dim_list]
+                if user_dim in dimension_values:
                     counter += 1
                 else:
-                    raise DifferentDimensionValueError(user_dim, counter_dim_df["dimension_id"].unique(), counter_dim_df["dimension_value"].tolist())
+                    dimension_ids = list({dim["dimension_id"] for dim in counter_dim_list})
+                    dimension_values_list = dimension_values
+                    raise DifferentDimensionValueError(user_dim, dimension_ids, dimension_values_list)
             else:
                 counter += 1 
                 
     elif kwargs: # The check must be done even if force_url==True as the program needs to fetch the positioning for dimension values.
-        dimensions_df = fetch_dimensions_df(timeout)
+        dimensions_list = fetch_dimensions(timeout)
         # Check how many dimensions there are
-        for _ in range(len(dimensions_df["dimension_id"].unique())):
+        for _ in range(max(item["order"] for item in dimensions_list)):
             dimensions.append("")
         for key, value in kwargs.items():
             check = False
             while not check:
-                for index, row in dimensions_df.iterrows():
+                for row in dimensions_list:
                     if key.casefold() == row["dimension_id"].casefold():
                         if value.casefold() == row["dimension_value"].casefold():
                             dimensions[row["order"]-1] = value # Order-1 is needed as order row starts from 1, order for lists starts from 0
@@ -100,18 +103,18 @@ def get_data(dataflow_id, timeout=60, dimensions=[], force_url=False, start_peri
     # Check if kwargs are used and t_bis is not defined;
     # Check if the dimensions are less than the order position for the dimensions.
     if select_last_edition==True:
-        if dimensions_df.empty:
-            dimensions_df = fetch_dimensions_df(timeout)
-        last_edition = find_last_edition(dimensions_df)
+        if not dimensions_list:
+            dimensions_list = fetch_dimensions(timeout)
+        last_edition = find_last_edition(dimensions_list)
         if last_edition is not None:
-            filtered_df = dimensions_df.loc[dimensions_df['dimension_id'] == 'T_BIS', 'order']
-            order_values = filtered_df.tolist()
+            filtered_list = [dim for dim in dimensions_list if dim["dimension_id"] == "T_BIS"]
+            order_values = [dim["order"] for dim in filtered_list]
             order = int(order_values[0])-1
             if kwargs and "t_bis" in kwargs:
                 print("Warning: you passed an edition value 't_bis=x' with select_last_edition set on True. Remove the t_bis variable if you want the module to automatically fetch the last edition.")
                 pass
             if order >= len(dimensions):
-                raise TooManyDimensionsError2(dimensions, (len(dimensions_df["dimension_id"].unique())))
+                raise TooManyDimensionsError2(dimensions, max(item["order"] for item in dimensions_list))
             if dimensions[order] != "":
                 print("Warning: you passed an edition value for the edition in the dimensions provided, with select_last_edition set on True. Remove the t_bis variable if you want the module to automatically fetch the last edition.")
                 pass
@@ -181,28 +184,29 @@ def get_data(dataflow_id, timeout=60, dimensions=[], force_url=False, start_peri
 
                 data.append(obs_data)
 
-        df = pd.DataFrame(data)
 
-        if df.empty:
+        if not data:
             print("No data retrieved. Open a request on GitHub, please.")
             return None
         else:
-            if returned == "dataframe":
-                return df
+            if returned == "":
+                return data
             elif returned == "csv":
-                df.to_csv(f"{dataflow_id}_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv", index=False)
+                if csv_name == "":
+                    csv_name = f"{dataflow_id}_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+                write_to_csv(data, csv_name)
 
 
-def find_last_edition(df):
+def find_last_edition(data):
     try:
-        edition_df = df[df["dimension_id"] == "T_BIS"]
+        edition_list = [item for item in data if item["dimension_id"] == "T_BIS"]
     except:
         return None
 
-    edition_list = edition_df["dimension_value"].tolist()
+    edition_values = [item["dimension_value"] for item in edition_list]
     date_info = []
 
-    for edition in edition_list:
+    for edition in edition_values:
         year = int(edition[0:4])
         month_start = edition.find("M") + 1
         month_end = month_start + 2 if edition[month_start:month_start + 2].isdigit() else month_start + 1
@@ -247,7 +251,7 @@ def find_last_edition(df):
     
             
 @rate_limiter
-def get_dimensions(dataflow_id, timeout=60, lang="en", returned="dataframe", debug_url=False):
+def get_dimensions(dataflow_id, timeout=60, lang="en", returned="", debug_url=False, csv_name=""):
     """
     
 
@@ -256,7 +260,7 @@ def get_dimensions(dataflow_id, timeout=60, lang="en", returned="dataframe", deb
     dataflow_id : String, 
         the dataflow id of the dataset.
     lang : String, 
-        "en" or "it", the language the search will be performed i n. The default is "en".
+        "en" or "it", the language the search will be performed in. The default is "en".
     get : Bool, 
         used only when called by the function get_dataframe() with force_url=False. The default is False.
     returned : String, 
@@ -274,7 +278,7 @@ def get_dimensions(dataflow_id, timeout=60, lang="en", returned="dataframe", deb
         parts = dataflow_id.split(",")
         dataflow_id = parts[1]
         
-    if returned != "dataframe" and returned != "csv":
+    if returned != "" and returned != "csv":
         raise WrongFormatError()
     namespaces = {
         'message': 'http://www.sdmx.org/resources/sdmxml/schemas/v2_1/message',
@@ -319,11 +323,12 @@ def get_dimensions(dataflow_id, timeout=60, lang="en", returned="dataframe", deb
                         })
                         break
         
-        
-    df = pd.DataFrame(codelist_list)
-    if returned == "dataframe":
-        return df
+    codelist_list = sorted(codelist_list, key=lambda x: x["order"])
+    if returned == "":
+        return codelist_list
     elif returned == "csv":
-        df.to_csv(f"{dataflow_id}_dimensions")
+        if csv_name == "":
+            csv_name = f"{dataflow_id}_dimensions.csv"
+        write_to_csv(codelist_list, csv_name)
 
         

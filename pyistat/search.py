@@ -1,16 +1,20 @@
-import pandas as pd
+import csv
 import requests
 import xml.etree.ElementTree as ET
-from .errors import OtherResponseCodeError, WrongFormatError
+from .errors import OtherResponseCodeError, WrongFormatError, MappingsError
 from .rate_limiter import rate_limiter
 
-all_dataflows = (
-    pd.DataFrame()
-)  # Cardinal sin: but I used a global variable. It serves ONLY to avoid repeating requests when searching is employed.
+all_dataflows = []  # Cardinal sin: but I used a global variable. It serves ONLY to avoid repeating requests when searching is employed.
 
+def write_to_csv(data, csv_name):
+    with open(csv_name, mode="w", newline="") as file:
+        fieldnames = data[0].keys()
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(data)
 
 @rate_limiter
-def get_all_dataflows(returned="dataframe", timeout=30):
+def get_all_dataflows(returned="", timeout=30, csv_name="all_dataflows_ISTAT.csv"):
     """
     This function is used in the search_dataflows function to search for dataflows,
     but it can also be used alone to get all the possible dataflows.
@@ -23,7 +27,7 @@ def get_all_dataflows(returned="dataframe", timeout=30):
     """
     # This is the ISTAT url for all dataflows
     global all_dataflows
-    if all_dataflows.empty:
+    if not all_dataflows:
         dataflow_url = (
             "https://esploradati.istat.it/SDMXWS/rest/dataflow/ALL/ALL/LATEST"
         )
@@ -64,21 +68,22 @@ def get_all_dataflows(returned="dataframe", timeout=30):
             raise OtherResponseCodeError(response_code)
             return None
     else:
-        df = all_dataflows
+        data = all_dataflows
 
-    df = pd.DataFrame(data)
-    all_dataflows = df  # Updates the global variable.
-
-    if returned.casefold() == "dataframe":
-        return df
+    ###
+    all_dataflows = data  # This updates the global variable. Don't forget!!!
+    ###
+    
+    if returned.casefold() == "":
+        return data
     elif returned.casefold() == "csv":
-        df.to_csv("all_dataflows_ISTAT.csv")
+        write_to_csv(data, csv_name)
     else:
         raise WrongFormatError()
 
 
 def search_dataflows(
-    search_term, mode="fast", lang="en", returned="dataframe", timeout=30
+    search_term, mode="fast", lang="en", returned="", timeout=30, csv_name=""
 ):
     """
     Allows searching for dataflows starting from strings passed. Can also accept a list.
@@ -106,56 +111,60 @@ def search_dataflows(
 
     """
     global all_dataflows
-    if returned != "dataframe" and returned != "csv":
+    if returned != "" and returned != "csv":
         raise WrongFormatError()
     # The function must accept either single words or lists
     if isinstance(search_term, str):
         search_term = [search_term]
-    if all_dataflows.empty:
-        df = get_all_dataflows(timeout=timeout)
+    if not all_dataflows:
+        data = get_all_dataflows(timeout=timeout)
     else:
-        df = all_dataflows
-    if df.empty:
+        data = all_dataflows
+    if not data or data == "":
         print(
             "Error: cannot retrieve dataflows from the ISTAT API. Open a request on Github."
         )
         return None
 
     # Initialize dataframe
-    search_df = df.copy()
-    search_df = search_df.iloc[:0]
+    search_result = []
     for term in search_term:
-        if lang == "en":
-            temp_df = df[
-                df["name_en"].str.contains(term, case=False, na=False)
-            ]
-            search_df = pd.concat([search_df, temp_df], ignore_index=True)
-        elif lang == "it":
-            temp_df = df[
-                df["name_it"].str.contains(term, case=False, na=False)
-            ]
-            search_df = pd.concat([search_df, temp_df], ignore_index=True)
-        elif lang == "id":
-            temp_df = df[df["id"].str.contains(term, case=False, na=False)]
-            search_df = pd.concat([search_df, temp_df], ignore_index=True)
-        else:
-            print("Language not found.")
-    if search_df.empty:
+        lang = lang.casefold()
+        if lang not in ("it", "en", "id"):
+            print("Language not found. Available: en, it, id.")
+        for row in data:
+            if lang.casefold() == "en" and row["name_en"]:
+                if term.casefold() in row["name_en"].casefold():
+                    search_result.append(row)
+            elif lang.casefold() == "it" and row["name_it"]:
+                if term.casefold() in row["name_it"].casefold():
+                    search_result.append(row)
+            elif lang.casefold() == "id" and row["id"]:
+                if term.casefold() in row["id"].casefold():
+                    search_result.append(row)
+            else:
+                print(f"Warning: there is no name assigned to the following dataflow id: {row['id']}.")
+
+    if not search_result:
         print(
             f"Warning: the dataflow {term} could not be found. Did you set the right language?"
         )
         return None
     if mode == "fast":
-        if returned == "dataframe":
-            return search_df
+        if returned == "":
+            return search_result
         elif returned == "csv":
-            search_df.to_csv("requested_data.csv", index=False)
+            if csv_name == "":
+                csv_name = f"{search_term}.csv"
+            write_to_csv(search_result, csv_name)
     if mode == "deep":
-        deep_search_df = deep_search(search_df, timeout=timeout)
-        if returned == "dataframe":
-            return deep_search_df
+        deep_search_result = deep_search(search_result, timeout=timeout)
+        if returned == "":
+            return deep_search_result
         elif returned == "csv":
-            deep_search_df.to_csv("requested_data.csv", index=False)
+            if csv_name == "":
+                csv_name = f"{search_term}.csv"
+            write_to_csv(deep_search_result, csv_name)
 
 
 def format_dimensions(
@@ -199,16 +208,19 @@ def get_dimension_dataflows(dataflow_id, timeout=30):
     data_url = f"https://esploradati.istat.it/SDMXWS/rest/availableconstraint/{dataflow_id}/?references=all&detail=full"
     response = requests.get(data_url)
     response_code = response.status_code
+    response_text = response.text
     if response_code == 200:
         response = response.content.decode("utf-8-sig")
+    elif response_code == 500:
+        raise MappingsError(dataflow_id, response_code, response_text)
     else:
-        raise OtherResponseCodeError(response_code)
-        return None
+        raise OtherResponseCodeError(response_code, response_text)
+        # return None
     tree = ET.ElementTree(ET.fromstring(response))
     return tree
 
 
-def deep_search(df, lang="en", timeout=30):
+def deep_search(search_list, lang="en", timeout=30):
     """
     This function is used by the search_dataflows function if the selected mode is "deep".
 
@@ -236,13 +248,18 @@ def deep_search(df, lang="en", timeout=30):
         "xml": "http://www.w3.org/XML/1998/namespace",
     }
     codelist_list = []
-    df["dataflow_dimensions"] = ""
-    for index, row in df.iterrows():
+    for row in search_list:
         dataflow_id = row["id"]
-        tree = get_dimension_dataflows(dataflow_id, timeout=timeout)
+        try:
+            tree = get_dimension_dataflows(dataflow_id, timeout=timeout)
+        except MappingsError as e:
+            print(e)
+            codelist_list.append([])
+            continue
         if tree is None:
-            print("Error: the dataflow id could not be retrieved. Aborting.")
-            return None
+            print("Warning: data for {dataflow_id} could not be retrieved. Skipping.")
+            codelist_list.append([])
+            continue
         cube_region = tree.find(".//structure:CubeRegion", namespaces)
         key_values = cube_region.findall(".//common:KeyValue", namespaces)
 
@@ -266,6 +283,6 @@ def deep_search(df, lang="en", timeout=30):
                             )
                             break
         dict_list = format_dimensions(codelist_list)
-        df.at[index, "dataflow_dimensions"] = dict_list
+        row["dataflow_dimensions"] = dict_list
 
-    return df
+    return search_list
