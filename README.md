@@ -100,11 +100,11 @@ pil_list = get.get_data("163_156_DF_DCCN_SQCQ_3", t_bis="2025M3", select_last_ed
 ```
 
 
-UPDATE 1.2: the following bug should be patched. Please update me if some error arises.
+UPDATE 1.2: the following bug should be patched. Please tell me if some error arises.
 
----
+
 There is an additional variable you can pass to the get_data function, which is force_url=True. Normally, the function checks whether the number of dimensions assigned is the same as the dimensions the dataflow requires, and whether the dimension values you provide are consistent with those of the dataflow. However, for unknown reasons, sometimes the number of dimension found in the structure XML is different from what the dataflow actually requires... In this case, if you are confident the URL is correct (maybe try it in the browser first), you can pass force_url=True to skip the controls.
----
+
 
 
 
@@ -121,6 +121,9 @@ To do: Add a graphic way to setup queries. Implement Classes instead of Function
 
 
 Last fixes: 
+
+1.2.1: 
+- You will find this version on PyPi! But there are no differences. Refer to the 1.2.0 patch notes.
 
 1.2.0:
 - Removed the pandas dependency, now you can use pyistat without installing it and you can also use it with polars or anything else hassle-free. 
