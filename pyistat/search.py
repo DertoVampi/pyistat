@@ -1,7 +1,7 @@
 import csv
 import requests
 import xml.etree.ElementTree as ET
-from .errors import OtherResponseCodeError, WrongFormatError, MappingsError
+from .errors import OtherResponseCodeError, WrongFormatError, MappingsError, OldVersionError
 from .rate_limiter import rate_limiter
 
 all_dataflows = []  # Cardinal sin: but I used a global variable. It serves ONLY to avoid repeating requests when searching is employed.
@@ -14,18 +14,27 @@ def write_to_csv(data, csv_name):
         writer.writerows(data)
 
 @rate_limiter
-def get_all_dataflows(returned="", timeout=30, csv_name="all_dataflows_ISTAT.csv"):
+def get_all_dataflows(returned="list", timeout=30, csv_name="all_dataflows_ISTAT.csv"):
     """
     This function is used in the search_dataflows function to search for dataflows,
     but it can also be used alone to get all the possible dataflows.
-
+    
+    returned : String, 
+        "" or "csv", the format to be returned. The default is "" to get a list of dictionaries.
+    timeout : Int, 
+        the maximum time before the request is aborted.
+    csv_name : String,
+        string with the path of the csv; if left null, it will auto-generate a name and place it in the directory of the script.
+    
     Returns
     -------
-    df : Returns a pandas DataFrame with all the dataflows if you choose the dataframe.
+    list of dictionaries : Returns a list of dicts that can be converted into DataFrames such as pandas or polars.
     csv file: Creates a csv file in the path of your code if you choose the csv.
 
     """
-    # This is the ISTAT url for all dataflows
+    # This is the ISTAT url to obtain all dataflows
+    if returned == "dataframe":
+        raise OldVersionError()
     global all_dataflows
     if not all_dataflows:
         dataflow_url = (
@@ -71,10 +80,10 @@ def get_all_dataflows(returned="", timeout=30, csv_name="all_dataflows_ISTAT.csv
         data = all_dataflows
 
     ###
-    all_dataflows = data  # This updates the global variable. Don't forget!!!
+    all_dataflows = data  # This updates the global variable. Don't forget (Toby Fox Reference?)!!!
     ###
     
-    if returned.casefold() == "":
+    if returned.casefold() == "list":
         return data
     elif returned.casefold() == "csv":
         write_to_csv(data, csv_name)
@@ -83,7 +92,7 @@ def get_all_dataflows(returned="", timeout=30, csv_name="all_dataflows_ISTAT.csv
 
 
 def search_dataflows(
-    search_term, mode="fast", lang="en", returned="", timeout=30, csv_name=""
+    search_term, mode="fast", lang="en", returned="list", timeout=30, csv_name=""
 ):
     """
     Allows searching for dataflows starting from strings passed. Can also accept a list.
@@ -95,7 +104,7 @@ def search_dataflows(
     mode : String,
         can be deep or fast. Deep search requires more requests but also gets the dimensions for datasets in a readable way. The default is "fast".
     lang : String,
-        "en" or "it", the language the search will be performed in. The default is "en".
+        "en", "it" or "id" to look for the dataflow_id, the language the search will be performed in. The default is "en".
     returned : String,
         "dataframe" or "csv", the format to be returned. The default is "dataframe".
 
@@ -106,12 +115,14 @@ def search_dataflows(
 
     Returns
     -------
-    df : Returns a pandas DataFrame with all the dataflows if you choose the dataframe.
+    list of dictionaries : Returns a list of dicts that can be converted into DataFrames such as pandas or polars.
     csv file: Creates a csv file in the path of your code if you choose the csv.
 
     """
     global all_dataflows
-    if returned != "" and returned != "csv":
+    if returned == "dataframe":
+        raise OldVersionError()
+    if returned != "list" and returned != "csv":
         raise WrongFormatError()
     # The function must accept either single words or lists
     if isinstance(search_term, str):
@@ -151,7 +162,7 @@ def search_dataflows(
         )
         return None
     if mode == "fast":
-        if returned == "":
+        if returned == "list":
             return search_result
         elif returned == "csv":
             if csv_name == "":
@@ -159,7 +170,7 @@ def search_dataflows(
             write_to_csv(search_result, csv_name)
     if mode == "deep":
         deep_search_result = deep_search(search_result, timeout=timeout)
-        if returned == "":
+        if returned == "list":
             return deep_search_result
         elif returned == "csv":
             if csv_name == "":
@@ -167,9 +178,7 @@ def search_dataflows(
             write_to_csv(deep_search_result, csv_name)
 
 
-def format_dimensions(
-    codelist_list,
-):  # Format dimensions in a different function to avoid cluttering, only used in deeps_search
+def format_dimensions(codelist_list):  # Format dimensions in a different function to avoid cluttering, only used in deeps_search
     codelist_list = sorted(codelist_list, key=lambda x: x["order"])
     dimension_dict = {}
     for item in codelist_list:
@@ -226,7 +235,7 @@ def deep_search(search_list, lang="en", timeout=30):
 
     Parameters
     ----------
-    df : Must be a DataFrame.
+    search_list : must be a list of dicts.
     lang : String,
         used to select the language of the search. The default is "en".
 
@@ -237,7 +246,7 @@ def deep_search(search_list, lang="en", timeout=30):
 
     Returns
     -------
-    df : normal return when used by search_dataflows.
+    list of dictionaries : normal return when used by search_dataflows.
 
     """
 

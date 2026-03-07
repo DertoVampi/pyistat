@@ -105,3 +105,12 @@ class WrongFormatError(Exception):
     def __init__(self, message="Wrong format requested. Choose either 'csv' or leave blank to obtain a Python list of dictionaries."):
         self.message = message
         super().__init__(self.message)
+        
+        
+class OldVersionError(Exception):
+    """
+    Still expecting a dataframe return? Watch out!
+    """
+    def __init__(self, message="Direct dataframe support is deprecated. Pyistat dependencies were updated not to need pandas. If you want a pandas dataframe, changed the 'returned' value of your get_data call to 'list' and insert it in a pd.DataFrame() object. Tutorial and explanation is available on Codeberg."):
+        self.message = message
+        super().__init__(self.message)

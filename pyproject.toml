@@ -1,7 +1,7 @@
 [project]
 name = "pyistat"
-version = "1.1.5"
-description = "Pyistat is a friendly module made to easily allow anyone to use Python to search and get datasets from ISTAT APIs. There are two modules: the search module is used to find datasets and gives all the information needed to build a request URL. The get module is used to get data after helping you properly setup the dimensions (the keys, as called by ISTAT). Full documentation available on Codeberg: https://codeberg.org/Derto/pyistat"
+version = "1.2.0b1"
+description = "Pyistat is a friendly module made to easily allow anyone to use Python to search and get datasets from ISTAT APIs. There are two modules: the search module is used to find datasets and gives all the information needed to build a request URL. The get module is used to get data after helping you properly setup the dimensions (the keys). Full documentation available on Codeberg: https://codeberg.org/Derto/pyistat"
 authors = [
     {name = "Cosimo Di Martino",email = "dev.dimartino@derto.eu"}
 ]
@@ -10,5 +10,4 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "requests (>=2.32.3,<3.0.0)",
-    "datetime (>=5.5,<6.0)",
 ]
