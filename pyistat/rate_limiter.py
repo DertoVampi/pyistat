@@ -1,8 +1,9 @@
 import time
 import threading
 from functools import wraps
+from ._logging import logger
 
-# As ISTAT has put in place extreme restrictions (5 requests per minute otherwise the IP gets blacklisted for 1 to 2 days),
+# As ISTAT has put in place some restrictions (5 requests per minute otherwise the IP gets blacklisted for 1 to 2 days),
 # this decorator prevents that by tracking the number of requests and pausing them if needed. 
 
 class RateLimiter:
@@ -22,13 +23,14 @@ class RateLimiter:
                     self.last_reset_time = time.time()
                 # Reset counter
                 if self.call_count + 1 > self.max_calls:
-                    print(f"{self.max_calls} requests limit reached. Waiting {self.time_to_pass} seconds...")
+                    logger.warning("%s requests limit reached. Waiting %s seconds before resuming.", self.max_calls, self.time_to_pass)
                     time.sleep(self.time_to_pass)
                     self.call_count = 0
                     self.last_reset_time = time.time()
-                    print("Resuming work. Resetting counters.")
+                    logger.info("Resuming work.")
                 # Track the count
                 self.call_count += 1
+                logger.debug("Rate limiter counter: %s/%s", self.call_count, self.max_calls)
             # This is the wrapped function.
                 # print(f"Wrapper engaged. Counter: {self.call_count}. Time passed: {time.time()-self.last_reset_time}...")
                 time.sleep(1) ### Safeguard

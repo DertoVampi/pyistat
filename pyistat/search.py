@@ -3,6 +3,7 @@ import requests
 import xml.etree.ElementTree as ET
 from .errors import OtherResponseCodeError, WrongFormatError, MappingsError, OldVersionError
 from .rate_limiter import rate_limiter
+from ._logging import logger
 
 all_dataflows = []  # Cardinal sin: but I used a global variable. It serves ONLY to avoid repeating requests when searching is employed.
 
@@ -80,7 +81,7 @@ def get_all_dataflows(returned="list", timeout=30, csv_name="all_dataflows_ISTAT
         data = all_dataflows
 
     ###
-    all_dataflows = data  # This updates the global variable. Don't forget (Toby Fox Reference?)!!!
+    all_dataflows = data  # This is needed. Don't remove it again. This updates the global variable. Don't forget. (Toby Fox Reference?)!!!
     ###
     
     if returned.casefold() == "list":
@@ -132,9 +133,7 @@ def search_dataflows(
     else:
         data = all_dataflows
     if not data or data == "":
-        print(
-            "Error: cannot retrieve dataflows from the ISTAT API. Open a request on Github."
-        )
+        logger.critical("Cannot retrieve dataflows from the search function. Open a request on Codeberg.")
         return None
 
     # Initialize dataframe
@@ -142,7 +141,7 @@ def search_dataflows(
     for term in search_term:
         lang = lang.casefold()
         if lang not in ("it", "en", "id"):
-            print("Language not found. Available: en, it, id.")
+            logger.error("Language not found. Available: en, it, id. You selected %s", lang)
         for row in data:
             if lang.casefold() == "en" and row["name_en"]:
                 if term.casefold() in row["name_en"].casefold():
@@ -154,12 +153,10 @@ def search_dataflows(
                 if term.casefold() in row["id"].casefold():
                     search_result.append(row)
             else:
-                print(f"Warning: there is no name assigned to the following dataflow id: {row['id']}.")
+                logger.warning("Name in lang=%s is missing from ISTAT for dataflow %s. If you think it is the dataset you need, look it up using its dataflow id.", lang, row["id"])
 
     if not search_result:
-        print(
-            f"Warning: the dataflow {term} could not be found. Did you set the right language?"
-        )
+        logger.warning("No dataflows for term %s could be found. Did you set the right language?", term)
         return None
     if mode == "fast":
         if returned == "list":
@@ -262,11 +259,11 @@ def deep_search(search_list, lang="en", timeout=30):
         try:
             tree = get_dimension_dataflows(dataflow_id, timeout=timeout)
         except MappingsError as e:
-            print(e)
+            logger.warning(e)
             codelist_list.append([])
             continue
         if tree is None:
-            print("Warning: data for {dataflow_id} could not be retrieved. Skipping.")
+            logger.warning("Dimensions data for %s could not be retrieved. Skipping.", dataflow_id)
             codelist_list.append([])
             continue
         cube_region = tree.find(".//structure:CubeRegion", namespaces)

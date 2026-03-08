@@ -1,3 +1,7 @@
+import logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger("pyistat")
+logger.setLevel(logging.DEBUG)
 from pyistat import get, search
 
 
@@ -85,7 +89,7 @@ energy_df = get.get_data(
 
 # energy_data = pd.DataFrame(energy_df)
 
-for _ in range(50): # Sorry ISTAT!
+for _ in range(5): # Sorry ISTAT!
     counter = _
     pil_growth_df = get.get_data(
         "163_156_DF_DCCN_SQCQ_2",
