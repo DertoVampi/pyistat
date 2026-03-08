@@ -1,9 +1,10 @@
 import requests
 import xml.etree.ElementTree as ET
+from datetime import datetime
 from .errors import DimensionsOrKwargsError, NotAListError, TooManyDimensionsError, TooManyDimensionsError2, DifferentDimensionValueError, KwargsError, OtherResponseCodeError, WrongFormatError, MappingsError, OldVersionError
 from .rate_limiter import rate_limiter
 from .search import write_to_csv
-from datetime import datetime
+from ._logging import logger
 
 
 def get_data(dataflow_id, timeout=60, dimensions=[], force_url=False, start_period="", end_period="", updated_after="", returned="list", csv_name="", select_last_edition=True, debug_url=False, test_rows = 0, **kwargs):
@@ -133,20 +134,20 @@ def get_data(dataflow_id, timeout=60, dimensions=[], force_url=False, start_peri
             order_values = [dim["order"] for dim in filtered_list]
             order = int(order_values[0])-1
             if kwargs and "t_bis" in kwargs:
-                print("Warning: you passed an edition value 't_bis=x' with select_last_edition set on True. Remove the t_bis variable if you want the module to automatically fetch the last edition.")
+                logger.warning("You passed an edition value 't_bis=x' with select_last_edition set on True. Remove the t_bis variable if you want the module to automatically fetch the last edition.")
                 pass
             if order >= len(dimensions):
                 raise TooManyDimensionsError2(dimensions, max(item["order"] for item in dimensions_list))
             if dimensions[order] != "":
-                print("Warning: you passed an edition value for the edition in the dimensions provided, with select_last_edition set on True. Remove the t_bis variable if you want the module to automatically fetch the last edition.")
+                logger.warning("You passed an edition value 't_bis=x' with select_last_edition set on True. Remove the t_bis variable if you want the module to automatically fetch the last edition.")
                 pass
             else:
                 try:
                     dimensions[order] = last_edition
-                except TooManyDimensionsError as e:
-                    print(e)
+                except TooManyDimensionsError:
+                    raise TooManyDimensionsError
         else:
-            print("Edition dimension not found. Skipping auto-fetching.")
+            logger.info("Edition dimension not found for %s. Skipping auto-fetching.", dataflow_id)
             
             
     # Checking if time periods are formatted right and building the strings
@@ -315,6 +316,7 @@ def get_dimensions(dataflow_id, timeout=60, lang="en", returned="list", debug_ur
     """
     if returned == "dataframe":
         raise OldVersionError()
+        
     ### Wrapped request function.############## 
     @rate_limiter
     def fetch_dimensions(api_url, timeout=timeout):
